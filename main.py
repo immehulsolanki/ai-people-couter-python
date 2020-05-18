@@ -39,7 +39,7 @@ CPU_EXTENSION = r"C:/Program Files (x86)/IntelSWTools/openvino_2019.3.379/deploy
 #CPU_EXTENSION = "/opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so"
 BOXCOLOR = {'RED':(0,0,255),'GREEN':(0,255,0),'BLUE':(255,0,0),'WHITE':(255,255,255),'BLACK':(0,0,0)}
 
-#MQTT server environment variables
+# MQTT server environment variables
 # HOSTNAME = socket.gethostname()
 # IPADDRESS = socket.gethostbyname(HOSTNAME)
 # MQTT_HOST = IPADDRESS
@@ -287,11 +287,12 @@ def infer_on_stream(args):
     count_flag = False
 
     # Accuracy Log
-    Accuracy_log = {}
+    # Accuracy_log = {}
     acount = 0
-    error_log = {'MuliBoxDetected':{}}
+    # error_log = {'MuliBoxDetected':{}}
     ecount = 0 #counter for error log in case of multiple box count
 
+    # Duration manual count [13, 21, 18, 11, 27, 12]
 
     # ### TODO: Loop until stream is over ###
     while cap.isOpened():
@@ -300,7 +301,7 @@ def infer_on_stream(args):
         flag, frame = cap.read()
         if not flag:
             break
-        key_pressed = cv2.waitKey(60)
+        key_pressed = cv2.waitKey(100)
         ### TODO: Read from the video capture ###
         ### TODO: Pre-process the image as needed ###
         p_frame = preprocess_frame(frame,net_input_shape[3],net_input_shape[2]) #from extracted input function
@@ -328,39 +329,50 @@ def infer_on_stream(args):
             
             count_people_image = countmultipeople # Variable For image stat only 
             ### TODO: Calculate and send relevant information on ###
-            if count_box != last_state: #Anythinkg underthis will executed if state changes
-                print("I am In")
+            if count_box != last_state: #Anythinkg under this will executed if state changes only onnce after sometime.
+                # print("I am In")
                 acount += 1 # Accuracy Log counter for dynamic key
                 if count_box == 1:
-                    print("I am in 1")
-                    count_flag = True
+                    # print("I am in 1")
+                    count_flag = True # Flag for verify if counting 
                     delay_on = (time.time() * 1000)  # Timer for on delay START
                     delay_diff_off = (time.time() * 1000) - delay_off # Timer for off delay END
-                    print("diff_off",delay_diff_off)
+                    # print("diff_off",delay_diff_off)
                     delay_diff_on = 0 # Timer for on delay RESET          
                 else:
-                    print("I am in 0")
+                    # print("I am in 0")
                     count_flag = False
                     delay_diff_on = (time.time() * 1000) - delay_on    # Timer for on delay END
                     delay_off = (time.time() * 1000)  # Timer for off delay START
-                    print("diff_on",delay_diff_on) #Debug
+                    # print("diff_on",delay_diff_on) #Debug
                     delay_diff_off = 0 # Timer for off delay RESET
 
                 #print("update on",delay_diff_on) #for debug
                 #print("update off",delay_diff_off) #for debug
 
                 if delay_diff_on > args.delay_band:
-                    print("count+",delay_diff_on, delay_diff_off)
-                    total_people_count += 1 
+                    total_people_count += 1 # Debug is placed above because count is not added yet.
                     duration = delay_diff_on / 1000 # Convert to Sec.
-                    #print("duration:", delay_diff_on / 1000 ,"Sec.") #Debug
+
+                    # Debug Update only when counting ++
+                    # print("count++ "+ " DDON: " + str("{:.2f}".format(delay_diff_on)) + " DDOF: " + str("{:.2f}".format(delay_diff_off)), 
+                    #     "duration: " + str("{:.2f}".format(duration)) + "Sec.") # Debug When count++
+                    print(['FrameNo:'+str(frame_count),'CurrentCount: '+
+                        str(countmultipeople),'TotalCount: '+str(total_people_count),'duration: '+str("{:.2f}".format(duration))])
+                    # print() # Add blank print for space
 
                 last_state = count_box
-                Accuracy_log['Log '+ str(acount)] = ['FrameNo:'+str(frame_count),'CurrentCount:'+
-                    str(countmultipeople),'TotalCount:'+str(total_people_count),'duration:'+str(duration)]
-                # Debug
-                print(['FrameNo:'+str(frame_count),'CurrentCount:'+
-                    str(countmultipeople),'TotalCount:'+str(total_people_count),'duration:'+str(duration)])
+
+                # Accuracy log
+                # Accuracy_log['Log '+ str(acount)] = ['FrameNo:'+str(frame_count),'CurrentCount:'+
+                #     str(countmultipeople),'TotalCount:'+str(total_people_count),'duration:'+str(duration)]
+                
+                # Debug if state changes 1 or 0 everytime, delay diff On/Off changes 
+                # print(['Instate: '+ str(count_box),'delaydifOn: '+ str("{:.2f}".format(delay_diff_on)),
+                #     'delaydifOff: '+ str("{:.2f}".format(delay_diff_off))])
+                # print(['FrameNo:'+str(frame_count),'CurrentCount: '+
+                #     str(countmultipeople),'TotalCount: '+str(total_people_count),'duration: '+str("{:.2f}".format(duration))])
+                # print() # Add blank print for space
             else:
                 if countmultipeople not in (0,1): #In case of multiple people detected
                     print("Multi count detected:",countmultipeople)
@@ -473,9 +485,9 @@ def infer_on_stream(args):
     #client.disconnect()
     print("Last frame prcessed no: ",frame_count)
     print("-----AccuracyLog-----")
-    print(Accuracy_log)
+    #print(Accuracy_log)
     print("-----Error log-----")
-    print(error_log)
+    #print(error_log)
     print("-----Finish!------")
 
 def main():

@@ -1,0 +1,4 @@
+Duration manual count [13, 21, 18, 11, 27, 12]
+===Terminal path
+python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i resources/io/pca.mp4
+
