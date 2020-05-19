@@ -58,6 +58,8 @@ def build_argparser():
                         help="Path to an xml file with a trained model.")
     parser.add_argument("-i", "--input", required=True, type=str,
                         help="Path to image, video file or for webcam just type CAM")
+    parser.add_argument("-fps", "--fps", required=True, type=int,
+                        help="FPS of Video or webcam, required to get perfect duration calculations.")
     parser.add_argument("-l", "--cpu_extension", required=False, type=str,
                         default=CPU_EXTENSION,
                         help="MKLDNN (CPU)-targeted custom layers."
@@ -286,6 +288,9 @@ def infer_on_stream(args):
     cv_drawstate_time_e = 0
     count_flag = False
 
+    frame_count_onstate = 0
+    frame_count_offstate = 0
+
     # Accuracy Log
     # Accuracy_log = {}
     acount = 0
@@ -301,7 +306,7 @@ def infer_on_stream(args):
         flag, frame = cap.read()
         if not flag:
             break
-        key_pressed = cv2.waitKey(100)
+        key_pressed = cv2.waitKey(1)
         ### TODO: Read from the video capture ###
         ### TODO: Pre-process the image as needed ###
         p_frame = preprocess_frame(frame,net_input_shape[3],net_input_shape[2]) #from extracted input function
@@ -337,18 +342,24 @@ def infer_on_stream(args):
                     count_flag = True # Flag for verify if counting 
                     delay_on = (time.time() * 1000)  # Timer for on delay START
                     delay_diff_off = (time.time() * 1000) - delay_off # Timer for off delay END
-                    # print("diff_off",delay_diff_off)
-                    delay_diff_on = 0 # Timer for on delay RESET          
+                    delay_diff_on = 0 # Timer for on delay RESET   
+
+                    frame_count_onstate = frame_count # Frame count is Global FPS counter
+                    frame_count_offstate = frame_count - frame_count_offstate # Calculates the difference
                 else:
                     # print("I am in 0")
                     count_flag = False
                     delay_diff_on = (time.time() * 1000) - delay_on    # Timer for on delay END
                     delay_off = (time.time() * 1000)  # Timer for off delay START
-                    # print("diff_on",delay_diff_on) #Debug
                     delay_diff_off = 0 # Timer for off delay RESET
 
-                #print("update on",delay_diff_on) #for debug
-                #print("update off",delay_diff_off) #for debug
+                    frame_count_onstate = frame_count - frame_count_onstate # Calculates the difference
+                    frame_count_offstate = frame_count
+
+                # For Debug if state changes then only update values
+                # print("update on",delay_diff_on) 
+                # print("update off",delay_diff_off) 
+                print(['frame_count_onstate: '+ str(frame_count_onstate), 'frame_count_offstate: '+ str(frame_count_offstate)])
 
                 if delay_diff_on > args.delay_band:
                     total_people_count += 1 # Debug is placed above because count is not added yet.
@@ -359,6 +370,7 @@ def infer_on_stream(args):
                     #     "duration: " + str("{:.2f}".format(duration)) + "Sec.") # Debug When count++
                     print(['FrameNo:'+str(frame_count),'CurrentCount: '+
                         str(countmultipeople),'TotalCount: '+str(total_people_count),'duration: '+str("{:.2f}".format(duration))])
+                    print('FrameBasedDuration: '+ str(frame_count_onstate / args.fps))
                     # print() # Add blank print for space
 
                 last_state = count_box
@@ -504,6 +516,7 @@ def main():
     print("-----Information-----")
     print("Model path:",args.model)
     print("Video/Image path:",args.input)
+    print("Video fps:",args.fps)
     print("Device:",args.device)
     print("CPU Ext. path:",args.cpu_extension)
     print("BoundingBox color:",args.box_color)

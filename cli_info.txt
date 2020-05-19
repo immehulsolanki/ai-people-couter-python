@@ -1,4 +1,7 @@
 Duration manual count [13, 21, 18, 11, 27, 12]
 ===Terminal path
-python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i resources/io/pca.mp4
+python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i resources/io/pca.mp4 -fps 10
+python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/pca60.mp4 -fps 60
+python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/pca30.mp4 -fps 30
+
 
