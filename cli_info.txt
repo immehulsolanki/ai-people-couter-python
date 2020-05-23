@@ -1,7 +1,80 @@
 Duration manual count [13, 21, 18, 11, 27, 12]
+
 ===Terminal path
+python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/mo.mp4 -fps 30
+
 python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i resources/io/pca.mp4 -fps 10
 python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/pca60.mp4 -fps 60
 python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/pca30.mp4 -fps 30
 
+Faster Rcnn coco
+python main.py -m git_ign/cmodels/frozen_inference_graph.xml -i resources/io/pca10.mp4 -fps 10 -ct 0.95
 
+# git_ign/ir/ folder: [just enter model name from ir folder]
+python main.py -i resources/io/pca10.mp4 -fps 10 -pt 0.5 -m git_ign/ir/
+
+============================ TF ==============
+FasterRcnn_coco
+img:
+python tf_detection.py -i resources/io/img2.jpg -fps 10 -pt 0.5 -m git_ign/cmodels/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.pb
+vid:
+python tf_detection.py -i resources/io/img2 -fps 10 -pt 0.5 -m git_ign/cmodels/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.pb
+
+
+SSD MobileNet:
+vid:
+python tf_detection.py -i resources/io/pca10.mp4 -fps 10 -pt 0.5 -m git_ign/cmodels/ssdlite_mobilenet_v2_coco_2018_05_09/frozen_inference_graph.pb
+
+FasterRcnn Nas coco:
+python tf_detection.py -i git_ign/more_io/mo.mp4 -fps 30 -pt 0.5 -m git_ign/cmodels/faster_rcnn_nas_coco_2018_01_28/frozen_inference_graph.pb
+
+
+========================MODEL Convert==================
+# Assumed cmd open in dl model folder
+
+# faster_rcnn_resnet101_lowproposals_coco_2018_01_28
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,600,1024,3] --reverse_input_channels --input=image_tensor
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,600,1024,3] --reverse_input_channels --input=image_tensor --data_type FP16
+
+
+# ssd_inception_v2_coco_2018_01_28
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3]
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3] --data_type FP16
+
+
+# ssd_mobilenet_v1_ppn_shared_box_predictor_300x300_coco14_sync_2018_07_03
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3]
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3] --data_type FP16
+
+
+# ssdlite_mobilenet_v2_coco_2018_05_09
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3]
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo_tf.py" --input_model frozen_inference_graph.pb --reverse_input_channels --input=image_tensor --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config ssd_v2_support.json --input_shape=[1,300,300,3] --data_type FP16
+
+
+# faster_rcnn_inception_v2_coco_2018_01_28
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,600,1024,3] --reverse_input_channels --input=image_tensor
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,600,1024,3] --reverse_input_channels --input=image_tensor --data_type FP16
+
+
+# faster_rcnn_nas_coco_2018_01_28
+# FP32
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,1200,1200,3] --reverse_input_channels --input=image_tensor
+
+# FP16
+python "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\mo.py" --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --tensorflow_use_custom_operations_config  "C:\Program Files (x86)\IntelSWTools\openvino_2019.3.379\deployment_tools\model_optimizer\extensions\front\tf\faster_rcnn_support.json" --input_shape=[1,1200,1200,3] --reverse_input_channels --input=image_tensor --data_type FP16

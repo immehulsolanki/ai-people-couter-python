@@ -1,6 +1,6 @@
 """People Counter."""
 """
- Copyright (c) 2018 Intel Corporation.
+ Copyright (c) 2020 Mehul Solanki.
  Permission is hereby granted, free of charge, to any person obtaining
  a copy of this software and associated documentation files (the
  "Software"), to deal in the Software without restriction, including
@@ -98,7 +98,7 @@ def build_argparser():
 # def connect_mqtt():
 #     ### TODO: Connect to the MQTT client ###
 #     #client = None
-#     client = mqtt.Client() #Fixed Syntax
+#     client = mqtt.Client() # Fixed Syntax
 #     client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL) # Syntax with parameter of ip port 
 #     return client
 
@@ -112,11 +112,11 @@ def check_input_type(input, id):
     error_flag = False
     image_flag = False
     cap = None
-    if checkInputargs == "CAM": #check for cam
-        cap = cv2.VideoCapture(id) #Assign CAM ID
+    if checkInputargs == "CAM": # Check for cam
+        cap = cv2.VideoCapture(id) # Assign CAM ID
         print("Performing inference on webcam video...")
-    elif checkError is -1:  #Check for if there any  extension
-        print("Error: invalid input or currupted file") #error for no extension
+    elif checkError is -1:  # Check for if there any  extension
+        print("Error: invalid input or currupted file") # Error for no extension
         print("Use -h argument for help")
         error_flag = True
     else:
@@ -236,7 +236,7 @@ def infer_on_stream(args):
     print("Required input img size W",net_input_shape[3],"H",net_input_shape[2])
 
     # ### TODO: Handle the input stream ###
-    #cap = cv2.VideoCapture(args.input)
+    # cap = cv2.VideoCapture(args.input)
     cap, error_flag, image_flag = check_input_type(args.input, args.cam_id) #call function
     #print("Cap debug",cap, error_flag, image_flag) #debug return
     if error_flag: # Check for invalid file extension
@@ -255,6 +255,11 @@ def infer_on_stream(args):
     # Get input feed height and width
     img_width = int(cap.get(3))
     img_height = int(cap.get(4))
+
+    if img_width < 1 or img_width is None: # If input path is wrong
+        print("Error! Can't read Input: Check path")
+        return
+
     print("feed frame size W",img_width,"H",img_height)
 
     # Initialize video writer if video mode
@@ -262,7 +267,7 @@ def infer_on_stream(args):
         # Video writer Windows10
         print("---Opencv video writer debug WIN---")
         fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-        out = cv2.VideoWriter('out.mp4', fourcc, 10, (img_width,img_height))
+        out = cv2.VideoWriter('out.mp4', fourcc, args.fps, (img_width,img_height))
         print("-------------------------------")
         # Video writer Linux
         # print("---Opencv video writer debug LIN---")
@@ -279,6 +284,8 @@ def infer_on_stream(args):
     delay_diff_on = 0
     delay_diff_off = 0
     duration = 0
+    duration_timebase = 0
+    duration_fpsbase = 0
     count_people_image = 0
 
     # Second counting timer initialized
@@ -292,21 +299,26 @@ def infer_on_stream(args):
     frame_count_offstate = 0
 
     # Accuracy Log
-    # Accuracy_log = {}
-    acount = 0
-    # error_log = {'MuliBoxDetected':{}}
-    ecount = 0 #counter for error log in case of multiple box count
+    log_acount = 0
+    log_frame_no = []
+    log_person_counted = []
+    log_duration_fpsbase = []
+    log_duration_timebase = []
+    log_infer_time = []
 
-    # Duration manual count [13, 21, 18, 11, 27, 12]
+    # error_log = {'MuliBoxDetected':{}}
+    log_ecount = 0 #counter for error log in case of multiple box count
+    log_multicounted = []
 
     # ### TODO: Loop until stream is over ###
     while cap.isOpened():
-        frame_count += 1 # Count no of frame processed.
+        frame_count += 1 # Global frame Count no of frame processed.
         # Read the next frame
         flag, frame = cap.read()
         if not flag:
             break
         key_pressed = cv2.waitKey(1)
+
         ### TODO: Read from the video capture ###
         ### TODO: Pre-process the image as needed ###
         p_frame = preprocess_frame(frame,net_input_shape[3],net_input_shape[2]) #from extracted input function
@@ -316,6 +328,7 @@ def infer_on_stream(args):
         inferreq_start_time = (time.time() * 1000) # Timer for inference START
         if infer_network.wait() == 0:
             inferreq_end_time = (time.time() * 1000) - inferreq_start_time # Timer for inference END
+            log_infer_time.append(float("{:.2f}".format(inferreq_end_time)))
             #print(inferreq_end_time)
 
             ### TODO: Get the results of the inference request ###
@@ -336,7 +349,7 @@ def infer_on_stream(args):
             ### TODO: Calculate and send relevant information on ###
             if count_box != last_state: #Anythinkg under this will executed if state changes only onnce after sometime.
                 # print("I am In")
-                acount += 1 # Accuracy Log counter for dynamic key
+                log_acount += 1 # increase stat change counter
                 if count_box == 1:
                     # print("I am in 1")
                     count_flag = True # Flag for verify if counting 
@@ -359,26 +372,31 @@ def infer_on_stream(args):
                 # For Debug if state changes then only update values
                 # print("update on",delay_diff_on) 
                 # print("update off",delay_diff_off) 
-                print(['frame_count_onstate: '+ str(frame_count_onstate), 'frame_count_offstate: '+ str(frame_count_offstate)])
+                # print(['frame_count_onstate: '+ str(frame_count_onstate), 'frame_count_offstate: '+ str(frame_count_offstate)])
 
                 if delay_diff_on > args.delay_band:
                     total_people_count += 1 # Debug is placed above because count is not added yet.
-                    duration = delay_diff_on / 1000 # Convert to Sec.
+                    duration_timebase = delay_diff_on / 1000 # Convert to Sec.
+                    duration_fpsbase = frame_count_onstate / args.fps # Local use
+                    duration = duration_fpsbase # global set
 
-                    # Debug Update only when counting ++
+                    # Debug Delay difference Update only when counting ++
                     # print("count++ "+ " DDON: " + str("{:.2f}".format(delay_diff_on)) + " DDOF: " + str("{:.2f}".format(delay_diff_off)), 
                     #     "duration: " + str("{:.2f}".format(duration)) + "Sec.") # Debug When count++
-                    print(['FrameNo:'+str(frame_count),'CurrentCount: '+
-                        str(countmultipeople),'TotalCount: '+str(total_people_count),'duration: '+str("{:.2f}".format(duration))])
-                    print('FrameBasedDuration: '+ str(frame_count_onstate / args.fps))
-                    # print() # Add blank print for space
+                    # Debug Count status Update only when counting ++
+                    # print(['FrameNo:'+str(frame_count),'CurrentCount: '+
+                    #     str(countmultipeople),'TotalCount: '+str(total_people_count),'duration_timebase: '+str("{:.2f}".format(duration_timebase))])
+                    # print('duration_fpsbase: '+ str(frame_count_onstate / args.fps))
+
+                    # Accuracy log, individual list log, termianl friendly
+                    log_person_counted.append(total_people_count)
+                    log_duration_timebase.append("{:.2f}".format(duration_timebase))
+                    log_duration_fpsbase.append(duration_fpsbase)
+                    log_frame_no.append(frame_count) # Log frame no of video 
 
                 last_state = count_box
 
-                # Accuracy log
-                # Accuracy_log['Log '+ str(acount)] = ['FrameNo:'+str(frame_count),'CurrentCount:'+
-                #     str(countmultipeople),'TotalCount:'+str(total_people_count),'duration:'+str(duration)]
-                
+                # state log for all variable changes when stat changes
                 # Debug if state changes 1 or 0 everytime, delay diff On/Off changes 
                 # print(['Instate: '+ str(count_box),'delaydifOn: '+ str("{:.2f}".format(delay_diff_on)),
                 #     'delaydifOff: '+ str("{:.2f}".format(delay_diff_off))])
@@ -387,12 +405,11 @@ def infer_on_stream(args):
                 # print() # Add blank print for space
             else:
                 if countmultipeople not in (0,1): #In case of multiple people detected
-                    print("Multi count detected:",countmultipeople)
-                    ecount += 1
-                    # Nested Dictionary one fixed key and second dynamic with input value is list
-                    error_log['MuliBoxDetected']['log ' + str(ecount)] = ['FrameNo ',str(frame_count)] 
-                    #total_people_count = countmultipeople
-                    #print(total_people_count) #debug
+                    # print("Multi count detected:",countmultipeople)
+                    log_ecount += 1 # Increase error counter
+                    # Nested list Frame and multipeople people count
+                    log_multicounted.append(['F: '+ str(frame_count) + ' C: ' + str(countmultipeople)])
+
         
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
@@ -438,7 +455,7 @@ def infer_on_stream(args):
             sec_diff = (time.time() * 1000) - sec_on  # Timer for update stat on terminal END
             # print("time in ms: ",sec_diff) # Debug
             if sec_diff > 1000 or sec_diff > 2000: # update stat roughly every 1 sec.
-                os.system('cls' if os.name == 'nt' else 'clear')
+                os.system('cls' if os.name == 'nt' else 'clear') # Clear the terminal
                 print() # Blank print
                 print("Video feed is OFF, Terminal will refresh every sec.")
                 print("Press ctlr+c to stop execution.")
@@ -469,9 +486,9 @@ def infer_on_stream(args):
 
         # Adjusting timers with inference and cv processing time to fix counting and duration.
         if count_flag:
-                #print("before",delay_on)
+                # print("before",delay_on)
                 delay_on = delay_on + inferreq_end_time + cv_drawboxtime_e + cv_drawstate_time_e
-                #print("after",delay_on)
+                #p rint("after",delay_on)
         else:
                 delay_off = delay_off + inferreq_end_time + cv_drawboxtime_e + cv_drawstate_time_e
 
@@ -482,24 +499,47 @@ def infer_on_stream(args):
                 cv2.imshow('frame',frame)
             #out.write(frame) 
         else:
+            ### TODO: Write an output image if `single_image_mode` ###
             cv2.imwrite('output_image.jpg', frame)
             print("Image saved sucessfully!")
 
         ### TODO: Send the frame to the FFMPEG server ###
         if args.toggle_video is "ON":
             a = None
-        ### TODO: Write an output image if `single_image_mode` ###
+
         if key_pressed == 27:
             break
 
     cap.release()
     cv2.destroyAllWindows()
+
     #client.disconnect()
     print("Last frame prcessed no: ",frame_count)
     print("-----AccuracyLog-----")
-    #print(Accuracy_log)
+    if len(log_person_counted) > 1: # Only if counting single person 
+        print("No Of person:")
+        print(log_person_counted)
+        # print("Duration stayed timebase:")
+        # print(log_duration_timebase)
+        print("Duration stayed fpsbase:")
+        print(log_duration_fpsbase)
+        print("Frame No.:")
+        print(log_frame_no)
+        log_infer_time = np.array(log_infer_time) # Convert list to np array
+        print("Inference time:[min max avg.]")
+        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+    else:
+        print("N/A")
+        log_infer_time = np.array(log_infer_time) # Convert list to np array
+        print("Inference time:[min max avg.]")
+        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+
     print("-----Error log-----")
-    #print(error_log)
+    if len(log_multicounted) < 10 and len(log_multicounted) > 1: # Only if counting single person
+        print("Frame No: Count")
+        print(log_multicounted)
+    else:
+        print("N/A")
     print("-----Finish!------")
 
 def main():
