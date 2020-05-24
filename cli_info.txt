@@ -1,5 +1,11 @@
 Duration manual count [13, 21, 18, 11, 27, 12]
 
+===== Udacity workspace cli model downloader linux =====
+This will download all precision models to workspace folder.
+Step1: cd /opt/intel/openvino/deployment_tools/tools/model_downloader
+step2: sudo ./downloader.py -h
+step3: sudo ./downloader.py --name person-detection-retail-0013 -o /home/workspace/resources/
+
 ===Terminal path
 python main.py -m git_ign/cmodels/person-detection-retail-0013.xml -i git_ign/more_io/mo.mp4 -fps 30
 
