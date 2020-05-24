@@ -19,6 +19,7 @@
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
+
 import os
 import sys
 import time
@@ -29,8 +30,8 @@ import logging as log
 from argparse import ArgumentParser
 from inference_local import Network
 
-#Win10 CPU_EXTENSION Path Openvino V2019R3
-CPU_EXTENSION = r"C:/Program Files (x86)/IntelSWTools/openvino_2019.3.379/deployment_tools/inference_engine/bin/intel64/Release/cpu_extension_avx2.dll"
+#Linux CPU_EXTENSION Path Openvino V2019R3
+CPU_EXTENSION = "/opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so"
 
 BOXCOLOR = {'RED':(0,0,255),'GREEN':(0,255,0),'BLUE':(255,0,0),'WHITE':(255,255,255),'BLACK':(0,0,0)}
 
@@ -250,10 +251,10 @@ def infer_on_stream(args):
     # Initialize video writer if video mode
     if args.write_video is "Y": # only if args given Y
         if not image_flag:
-            # Video writer Windows10
-            print("---Opencv video writer debug WIN---")
+            # Video writer Linux
+            print("---Opencv video writer debug LIN---")
             fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-            out = cv2.VideoWriter('out.mp4', fourcc, args.fps, (img_width,img_height))
+            out = cv2.VideoWriter('out.mp4', 0x00000021, 30, (img_width,img_height))
             print("-------------------------------")
 
     # Initialized varible utilized inside loop

@@ -26,14 +26,6 @@ import os
 import sys
 import logging as log
 from openvino.inference_engine import IENetwork, IECore
-import datetime
-
-# Init Log File, will save to current dir with datetime
-filenameis = "log_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
-log.basicConfig(filename = filenameis ,level=log.DEBUG)
-# log.debug('This message should go to the log file')
-# log.info('So should this')
-# log.warning('And this, too')
 
 # This code will be reusable in Windows10 and Linux without any change 
 class Network:
@@ -58,12 +50,12 @@ class Network:
         ### TODO: Load the model ###
         self.plugin = IECore()
 
-        log.info("------device avaibility--------")
-        # for devices in self.plugin.available_devices: #Dont use device variable, conflicts.
-        #     log.info("Available device: "+ str(devices)) #get name of available devices
-        log.info("---------Plugin version--------")
+        print("------device avaibility--------")
+        for devices in self.plugin.available_devices: #Dont use device variable, conflicts.
+            print("Available device:",devices) #get name of available devices
+        print("---------Plugin version--------")
         ver = self.plugin.get_versions("CPU")["CPU"] # get plugin info
-        log.info("descr: maj.min.num"+ str(ver.description) +"."+ str(ver.major) +"." + str(ver.minor)+"." + str(ver.build_number))
+        print("{descr}: {maj}.{min}.{num}".format(descr=ver.description, maj=ver.major, min=ver.minor, num=ver.build_number))
 
         ### Load IR files into their related class
         model_xml = model
@@ -73,55 +65,57 @@ class Network:
             f,s = model_xml.rsplit(".",1) #check from last "." and "r"split only one element from last
             model_bin = f + ".bin"
         else:
-            log.error("Error! Model files are not found or invalid, check paths")
-            log.error("Program stopped")
+            print("Error! Model files are not found or invalid, check paths")
+            print("Program stopped")
             sys.exit() #exit program no further execution
-        log.info("-------------Model path----------")
-        log.info("XML: "+ str(model_xml))
-        log.info("bin: "+ str(model_bin))
+        print("-------------Model path----------")
+        print("XML:",model_xml)
+        print("bin:",model_bin)
 
         self.network = IENetwork(model=model_xml, weights=model_bin)
-        log.info("ModelFiles are successfully loaded into IENetwork")
+        print("ModelFiles are successfully loaded into IENetwork")
 
         ### TODO: Check for supported layers ###
-        log.info("Checking for supported Network layers...")
+        print("Checking for supported Network layers...")
         # Query network will return all the layer, required all the time if device changes.
         supported_layers = self.plugin.query_network(network=self.network, device_name="CPU")
-        log.info("------Status of default Network layers--------")
-        log.info("No. of Layers in network"+ str(len(self.network.layers)))
-        log.info("No. of supported layers:"+ str(len(supported_layers)))
+        print("------Status of default Network layers--------")
+        print("No. of Layers in network",len(self.network.layers))
+        print("No. of supported layers:",len(supported_layers))
 
         unsupported_layers = [l for l in self.network.layers.keys() if l not in supported_layers]
         if len(unsupported_layers) != 0:
-            log.info("Unsupported layers found:"+ str(unsupported_layers))
-            log.info("CPU extension required and adding...")
+            print("Unsupported layers found: {}".format(unsupported_layers))
+            print("CPU extension required and adding...")
             #exit(1)
         ### TODO: Add any necessary extensions ###
+            #print(cpu_extension)
+            #print(device)
             if cpu_extension and "CPU" in device:
                 self.plugin.add_extension(cpu_extension, device)
-                log.info("Checking for CPU extension compatibility...")
+                print("Checking for CPU extension compatibility...")
                 # Again Query network will return fresh list of supported layers.
                 supported_layers = self.plugin.query_network(network=self.network, device_name="CPU")
-                log.info("------Status of Network layers with CPU Extension--------")
-                log.info("No. of Layers in network"+ str(len(self.network.layers)))
-                log.info("No. of supported layers:"+ str(len(supported_layers)))
+                print("------Status of Network layers with CPU Extension--------")
+                print("No. of Layers in network",len(self.network.layers))
+                print("No. of supported layers:",len(supported_layers))
 
                 unsupported_layers = [l for l in self.network.layers.keys() if l not in supported_layers]
                 if len(unsupported_layers) != 0:
-                    log.error("Unsupported layers found: "+ str((unsupported_layers)))
-                    log.error("Error! Model not supported, Program stopped")
+                    print("Unsupported layers found: {}".format(unsupported_layers))
+                    print("Error! Model not supported, Program stopped")
                     exit()
             else:
-                log.error("Error! cpu extension not found")
-                log.error("Program stopped")
+                print("Error! cpu extension not found")
+                print("Program stopped")
                 exit()
         else:
-            log.info("All the layers are supported, No CPU extension required")
+            print("All the layers are supported, No CPU extension required")
         
         ### TODO: Return the loaded inference plugin ###
         # This will enable all following four functions ref:intel doc. ie_api.IECore Class Reference
         self.exec_network = self.plugin.load_network(self.network, "CPU")
-        log.info("IR successfully loaded into Inference Engine")
+        print("IR successfully loaded into Inference Engine")
 
         ### Note: You may need to update the function parameters. ###
         return
@@ -133,9 +127,9 @@ class Network:
         # To avoid unnecessory conversion in realtime in exec_net() and get_input_shape()
         self.count_input_layers = len(list(self.network.inputs))
 
-        log.info("-----Accessing input layer information-----")
-        log.info('Network input layers = ' + str(list(self.network.inputs)))
-        log.info('Network input layers type: '+ str(type(self.network.inputs)))
+        print("-----Accessing input layer information-----")
+        print('Network input layers = ' + str(list(self.network.inputs)))
+        print('Network input layers type: ',type(self.network.inputs))
 
         # FasterRcnn model Fix for Openvino V2019R3
         if self.count_input_layers > 1: # check if more than 1 input layers
@@ -148,18 +142,18 @@ class Network:
             self.second_input_layer = list(self.network.inputs)[1]
             #print("Var:",self.first_input_layer,self.second_input_layer) #Debug
 
-            log.warning("More than one input layers found")
-            log.warning("### Warning!!! Manual data feed may require... ###")
-            log.warning("Read respective model documentation for more info.")
+            print("More than one input layers found")
+            print("### Warning!!! Manual data feed may require... ###")
+            print("Read respective model documentation for more info.")
             self.input_blob =  self.network.inputs[self.second_input_layer]
-            log.warning("Manually selected input layer: "+ str(self.second_input_layer))
-            log.warning("Fixed data applied to other input layer: "+ str(self.first_input_layer) +":" + str([600,1024,1]))
-            log.warning("in function exec_net()")
-            log.info("-------------------------------")
+            print("Manually selected input layer: ",self.second_input_layer)
+            print("Fixed data applied to other input layer: ",self.first_input_layer,":",[600,1024,1])
+            print("in function exec_net()")
+            print("-------------------------------")
             return self.input_blob.shape
         else: # If regular model 
             self.input_blob = next(iter(self.network.inputs))#Origional
-            log.info("-------------------------------")
+            print("-------------------------------")
             return self.network.inputs[self.input_blob].shape #Origional
 
     def exec_net(self,image):

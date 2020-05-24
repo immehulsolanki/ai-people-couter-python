@@ -29,10 +29,13 @@ import cv2
 import numpy as np
 import logging as log
 import paho.mqtt.client as mqtt
-
+import datetime
 from argparse import ArgumentParser
 from inference import Network
 
+
+#Win10 CPU_EXTENSION Path Openvino V2019R3
+#CPU_EXTENSION = r"C:/Program Files (x86)/IntelSWTools/openvino_2019.3.379/deployment_tools/inference_engine/bin/intel64/Release/cpu_extension_avx2.dll"
 #Linux CPU_EXTENSION Path Openvino V2019R3
 CPU_EXTENSION = "/opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so"
 BOXCOLOR = {'RED':(0,0,255),'GREEN':(0,255,0),'BLUE':(255,0,0),'WHITE':(255,255,255),'BLACK':(0,0,0)}
@@ -41,7 +44,7 @@ BOXCOLOR = {'RED':(0,0,255),'GREEN':(0,255,0),'BLUE':(255,0,0),'WHITE':(255,255,
 HOSTNAME = socket.gethostname()
 IPADDRESS = socket.gethostbyname(HOSTNAME)
 MQTT_HOST = IPADDRESS
-MQTT_PORT = 3001 #Udacity port 3001 # Default 1883
+MQTT_PORT = 3001 #Udacity port # Default 1883
 MQTT_KEEPALIVE_INTERVAL = 60
 
 
@@ -80,7 +83,7 @@ def build_argparser():
     parser.add_argument("-ad", "--alarm_duration", type=int, default=15,
                         help="Alarm when time of person stayed exceed the limit"
                         "(15sec. by default)")
-    parser.add_argument("-tvf", "--toggle_video", type=str, default="ON",
+    parser.add_argument("-tv", "--toggle_video", type=str, default="ON",
                         help="Toggle Video feed on or off [ON or OFF]"
                         "(on by default)")
     parser.add_argument("-ci", "--cam_id", type=int, default=0,
@@ -89,7 +92,10 @@ def build_argparser():
     parser.add_argument("-db", "--delay_band", type=int, default=1000,
                         help="input delay band (Millis) to fix counting in case of video fluctuation or frame loss"
                         "(1000 millis by default)")
-                        
+    parser.add_argument("-wv", "--write_video", type=str, default="N",
+                        help="write video to local file Y or N [Y or N]"
+                        "(on by default)")
+                           
     return parser
 
 
@@ -103,7 +109,6 @@ def check_input_type(input, id):
     """
     check input is video,image or cam
     """
-    #print("input",input)
     checkInputargs = input #string from args.input
     checkError = checkInputargs.find(".") #Verify If there is extension or other than CAM
     error_flag = False
@@ -111,22 +116,22 @@ def check_input_type(input, id):
     cap = None
     if checkInputargs == "CAM": # Check for cam
         cap = cv2.VideoCapture(id) # Assign CAM ID
-        #1 print("Performing inference on webcam video...",flush=True)
+        log.info("Performing inference on webcam video...")
     elif checkError is -1:  # Check for if there any  extension
-        #1print("Error: invalid input or currupted file",flush=True) # Error for no extension
-        #1print("Use -h argument for help",flush=True)
+        log.error("Error: invalid input or currupted file") # Error for no extension
+        log.error("Use -h argument for help")
         error_flag = True
     else:
         path,ext= checkInputargs.rsplit(".",1) #find extension
         if ext == "bmp" or ext == "jpg": #supporeted ext.
-            #1print("Performing inference on single image...",flush=True)
+            log.info("Performing inference on single image...")
             cap = cv2.VideoCapture(input)
             image_flag = True
         elif ext == "mp4" or ext == "MP4": #if not image feed video
             cap = cv2.VideoCapture(input) #Load local stream
-            #1print("Performing inference on local video...",flush=True)
+            log.info("Performing inference on local video...")
         else:
-            #1print("Image/Video formate not supported",flush=True)
+            log.error("Image/Video formate not supported")
             error_flag = True
     return cap, error_flag, image_flag
 
@@ -135,7 +140,6 @@ def preprocess_frame(frame,height,width):
     p_frame = cv2.resize(frame, (height, width)) #Resize as per network input spec.
     p_frame = p_frame.transpose((2,0,1)) #swap channel cxhxw 
     p_frame = p_frame.reshape(1, *p_frame.shape) #add one axis 1 to make 4D shape for network input
-    #print(p_frame.shape) #Debug output
     return p_frame
 
 def draw_boxes(frame, result, width, height, color, prob_threshold):
@@ -226,19 +230,22 @@ def infer_on_stream(args, client):
     # ### TODO: Load the model through `infer_network` ###
     infer_network.load_model(args.model, args.device, args.cpu_extension)
     net_input_shape = infer_network.get_input_shape()
+
+    log.info("Selected Network input Layer type is "+str(type(net_input_shape))+" And shape is "+str(net_input_shape))
+    log.info("Required input img size W "+str(net_input_shape[3])+" H "+str(net_input_shape[2]))
+
     # ### TODO: Handle the input stream ###
     # cap = cv2.VideoCapture(args.input)
     cap, error_flag, image_flag = check_input_type(args.input, args.cam_id) #call function
-    #print("Cap debug",cap, error_flag, image_flag) #debug return
     if error_flag: # Check for invalid file extension
-        #1print("Program stopped",flush=True)
+        log.error("Program stopped")
         return
     elif image_flag: #check for image 
         INPUT_IMAGE = args.input
         img = cv2.imread(INPUT_IMAGE)
         if (type(img) is not np.ndarray):  #check for if image read empty same as img.empty()
-            #1print("Error: Invalid image or path",flush=True)
-            #1print("Use -h argument for help",flush=True)
+            log.error("Error: Invalid image or path")
+            log.error("Use -h argument for help")
             return
     else:
         cap.open(args.input)
@@ -248,8 +255,21 @@ def infer_on_stream(args, client):
     img_height = int(cap.get(4))
 
     if img_width < 1 or img_width is None: # If input path is wrong
-        #1print("Error! Can't read Input: Check path",flush=True)
+        log.error("Error! Can't read Input: Check path")
         return
+
+    log.info("feed frame size W "+str(img_width) + " H " + str(img_height))
+
+    # Initialize video writer if video mode
+    if args.write_video is "Y": # only if args given Y
+        if not image_flag:
+            # Video writer Linux
+            log.info("---Opencv video writer debug LIN---")
+            fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+            out = cv2.VideoWriter('out.mp4', 0x00000021, 30, (img_width,img_height))
+            log.info("-------------------------------")
+
+    # Initialized varible utilized inside loop
     frame_count = 0 
     total_people_count = 0
     last_state = 0
@@ -280,12 +300,10 @@ def infer_on_stream(args, client):
     log_duration_timebase = []
     log_infer_time = []
 
-    # error_log 
+    # error_log = {'MuliBoxDetected':{}}
     log_ecount = 0 #counter for error log in case of multiple box count
     log_multicounted = []
-    
-    #1print(chr(27) + "[2J")
-    #1time.sleep(1)
+
     # ### TODO: Loop until stream is over ###
     while cap.isOpened():
         frame_count += 1 # Global frame Count no of frame processed.
@@ -305,9 +323,14 @@ def infer_on_stream(args, client):
         if infer_network.wait() == 0:
             inferreq_end_time = (time.time() * 1000) - inferreq_start_time # Timer for inference END
             log_infer_time.append(float("{:.2f}".format(inferreq_end_time)))
-
+            
             ### TODO: Get the results of the inference request ###
             blob, result = infer_network.get_output()
+
+            # If model outputs multiple blob, print available blob infirmation
+            if frame_count == 1: # Print only Once
+                for name,output_ in blob.items(): #Find the possible BLOBS for name, 
+                    log.info ("The name of available blob is :"+str(name))
 
             ### TODO: Extract any desired stats from the results ###
             color = selectBoxcolor(args.box_color)
@@ -336,32 +359,34 @@ def infer_on_stream(args, client):
                     frame_count_onstate = frame_count - frame_count_onstate # Calculates the difference
                     frame_count_offstate = frame_count
 
-                ### Topic "person": keys of "count" and "total" ###
-                client.publish("person", json.dumps({"count": countmultipeople}))
-
                 if delay_diff_on > args.delay_band:
                     total_people_count += 1 # Debug is placed above because count is not added yet.
                     duration_timebase = delay_diff_on / 1000 # Convert to Sec.
                     duration_fpsbase = frame_count_onstate / args.fps # Local use
-                    duration = duration_fpsbase # global set
+                    duration = duration_fpsbase # global set 
+
+                    # Accuracy log, individual list log, termianl friendly
+                    log_person_counted.append(total_people_count)
+                    log_duration_timebase.append("{:.2f}".format(duration_timebase))
+                    log_duration_fpsbase.append(duration_fpsbase)
+                    log_frame_no.append(frame_count) # Log frame no of video 
 
                     ### current_count, total_count and duration to the MQTT server ###
                     ### Topic "person": keys of "count" and "total" ###
                     client.publish("person", json.dumps({"total":total_people_count}))
                     ### Topic "person/duration": key of "duration" ###
                     client.publish("person/duration", json.dumps({"duration": duration}))
-                    log_person_counted.append(total_people_count)
-                    log_duration_timebase.append("{:.2f}".format(duration_timebase))
-                    log_duration_fpsbase.append(duration_fpsbase)
-                    log_frame_no.append(frame_count) # Log frame no of video 
+                client.publish("person", json.dumps({"count": countmultipeople}))
 
                 last_state = count_box
+
             else:
                 if countmultipeople not in (0,1): #In case of multiple people detected
                     log_ecount += 1 # Increase error counter
+                    # Nested list Frame and multipeople people count
                     log_multicounted.append(['F: '+ str(frame_count) + ' C: ' + str(countmultipeople)])
 
-
+        
         ### This part needed to be optimized
         if args.toggle_video is "ON": # If video feed is off stop unnecessory processing
             cv_drawstate_time_s = (time.time() * 1000) # TImer for draw stat on frame START
@@ -398,61 +423,95 @@ def infer_on_stream(args, client):
         else:
              # Stats of time of cv processing on image frame
             sec_diff = (time.time() * 1000) - sec_on  # Timer for update stat on terminal END
-            # print("time in ms: ",sec_diff) # Debug
+            # log.info"time in ms: ",sec_diff) # Debug
             if sec_diff > 1000 or sec_diff > 2000: # update stat roughly every 1 sec.
                 os.system('cls' if os.name == 'nt' else 'clear') # Clear the terminal
                 print() # Blank print
-                print("Video feed is OFF, Terminal will refresh every sec.",flush=True)
-                print("Press ctlr+c to stop execution.",flush=True)
+                print("Video feed is OFF, Terminal will refresh every sec.")
+                print("Press ctlr+c to stop execution.")
                 # People count on terminal
                 if countmultipeople > 1:
-                    print("Total people count: ",countmultipeople,flush=True)
+                    print("Total people count: ",countmultipeople)
                 else: 
-                    print("Current people count: ", total_people_count,flush=True)
-                    print("Total people count: ",total_people_count,flush=True)
-                    print("Average Time stayed: ""{:.2f}".format(duration)," Sec.",flush=True)
+                    print("Current people count: ", total_people_count)
+                    print("Total people count: ",total_people_count)
+                    print("Average Time stayed: ""{:.2f}".format(duration)," Sec.")
                 # Alarm on terminal 
                 if countmultipeople > args.alarm_people or duration > args.alarm_duration:
                     if countmultipeople > args.alarm_people:
-                        print("##### Alarm1 #####",flush=True)
-                        print("People count limit exceeded! limit: "+ str(args.alarm_people),flush=True)
-                        print("##################",flush=True)
+                        print("##### Alarm1 #####")
+                        print("People count limit exceeded! limit: "+ str(args.alarm_people))
+                        print("##################")
                     else:
-                        print("##### Alarm2 #####",flush=True)
-                        print("Person stayed longer! limit: " + str(args.alarm_duration) + "Sec.",flush=True)#string label 
-                        print("##################",flush=True) 
-                print("-----Stats for time -----",flush=True) 
-                print("Inference Time(ms):","{:.2f}".format(inferreq_end_time),flush=True)
-                print("Draw boundingBox time(ms):", "{:.2f}".format(cv_drawboxtime_e),flush=True)
-                print("Draw state time(ms):", "{:.2f}".format(cv_drawstate_time_e),flush=True)
-                print("--------------------------",flush=True) 
+                        print("##### Alarm2 #####")
+                        print("Person stayed longer! limit: " + str(args.alarm_duration) + "Sec.")#string label 
+                        print("##################") 
+                print("-----Stats for time -----") 
+                print("Inference Time(ms):","{:.2f}".format(inferreq_end_time))
+                print("Draw boundingBox time(ms):", "{:.2f}".format(cv_drawboxtime_e))
+                print("Draw state time(ms):", "{:.2f}".format(cv_drawstate_time_e))
+                print("--------------------------") 
                 sec_on = (time.time() * 1000) # Timer for update stat on terminal RESET
                 sec_diff = 0 # Timer for update stat on terminal RESET
 
         # Adjusting timers with inference and cv processing time to fix counting and duration.
         if count_flag:
-                # print("before",delay_on)
+
                 delay_on = delay_on + inferreq_end_time + cv_drawboxtime_e + cv_drawstate_time_e
-                #p rint("after",delay_on)
+
         else:
                 delay_off = delay_off + inferreq_end_time + cv_drawboxtime_e + cv_drawstate_time_e
 
-        if image_flag:
-            ### TODO: Write an output image if `single_image_mode` ###
-            cv2.imwrite('output_image.jpg', frame)
-            # print("Image saved sucessfully!")
 
         ### TODO: Send the frame to the FFMPEG server ###
-        if args.toggle_video is "ON":
-            sys.stdout.buffer.write(frame)
-            sys.stdout.flush()
+        # Write video or image file
+        if not image_flag:
+            if args.toggle_video is "ON":
+                sys.stdout.buffer.write(frame) # Send to ffmpeg
+                sys.stdout.flush() # Send to ffmpeg
+                # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+                # cv2.imshow('frame',frame)
+            if args.write_video is "Y":
+                out.write(frame) 
+        else:
+            ### TODO: Write an output image if `single_image_mode` ###
+            cv2.imwrite('output_image.jpg', frame)
+            print("Image saved sucessfully!")
 
         if key_pressed == 27:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    client.disconnect()
+
+    #client.disconnect()
+    print("Last frame prcessed no: ",frame_count)
+    print("-----AccuracyLog-----")
+    if len(log_person_counted) > 1: # Only if counting single person 
+        print("No Of person:")
+        print(log_person_counted)
+        # print("Duration stayed timebase:")
+        # print(log_duration_timebase)
+        print("Duration stayed fpsbase:")
+        print(log_duration_fpsbase)
+        print("Frame No.:")
+        print(log_frame_no)
+        log_infer_time = np.array(log_infer_time) # Convert list to np array
+        print("Inference time:[min max avg.]")
+        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+    else:
+        print("N/A")
+        log_infer_time = np.array(log_infer_time) # Convert list to np array
+        print("Inference time:[min max avg.]")
+        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+
+    print("-----Error log-----")
+    if len(log_multicounted) < 10 and len(log_multicounted) > 1: # Only if counting single person
+        print("Frame No: Count")
+        print(log_multicounted)
+    else:
+        print("N/A")
+    print("-----Finish!------")
 
 def main():
     """
@@ -463,10 +522,30 @@ def main():
     # Grab command line args
     # This is different method so do not use .m type attributes instead use whole name.
     args = build_argparser().parse_args()
+
+    log.info("Commandline Arguments received")
+    log.info("-----Information-----")
+    log.info("Model path:"+ str(args.model))
+    log.info("Video/Image path:"+ str(args.input))
+    log.info("Video fps:"+str(args.fps))
+    log.info("Device:"+str(args.device))
+    log.info("CPU Ext. path:"+str(args.cpu_extension))
+    log.info("BoundingBox color:"+str(args.box_color))
+    log.info("Confidence:"+str(args.prob_threshold))
+    log.info("Alarm People count:"+str(args.alarm_people))
+    log.info("Alarm Person duration Sec.:"+str(args.alarm_duration))
+    log.info("Web cam ID(If any):"+str(args.cam_id))
+    log.info("Delay Band(ms):"+str(args.delay_band))
+    log.info("Toggle video feed on/off:"+str(args.toggle_video))
+    log.info("Write output to video file Y or N:"+str(args.write_video))
+    log.info("-----------------------")
+    # Connect to the MQTT server
     client = connect_mqtt()
 
+
     # Perform inference on the input stream
-    infer_on_stream(args, client)
+    infer_on_stream(args, client) 
+    
 
 
 if __name__ == '__main__':
