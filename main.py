@@ -429,6 +429,7 @@ def infer_on_stream(args, client):
                 print() # Blank print
                 print("Video feed is OFF, Terminal will refresh every sec.")
                 print("Press ctlr+c to stop execution.")
+                print("Checkout log_xxx.txt for stats.")
                 # People count on terminal
                 if countmultipeople > 1:
                     print("Total people count: ",countmultipeople)
@@ -483,35 +484,37 @@ def infer_on_stream(args, client):
 
     cap.release()
     cv2.destroyAllWindows()
+    client.disconnect()
 
-    #client.disconnect()
-    print("Last frame prcessed no: ",frame_count)
-    print("-----AccuracyLog-----")
+    # Dump to log txt file
+    log.info("Last frame prcessed no: "+ str(frame_count))
+    log.info("-----AccuracyLog-----")
     if len(log_person_counted) > 1: # Only if counting single person 
-        print("No Of person:")
-        print(log_person_counted)
-        # print("Duration stayed timebase:")
-        # print(log_duration_timebase)
-        print("Duration stayed fpsbase:")
-        print(log_duration_fpsbase)
-        print("Frame No.:")
-        print(log_frame_no)
+        log.info("No Of person:")
+        log.info(str(log_person_counted))
+        # log.info("Duration stayed timebase:")
+        # log.info(str(log_duration_timebase))
+        log.info("Duration stayed fpsbase:")
+        log.info(str(log_duration_fpsbase))
+        log.info("Frame No.:")
+        log.info(str(log_frame_no))
         log_infer_time = np.array(log_infer_time) # Convert list to np array
-        print("Inference time:[min max avg.]")
-        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+        log.info("Inference time:[min max avg.]")
+        log.info(str([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))]))
     else:
-        print("N/A")
+        log.info("N/A")
         log_infer_time = np.array(log_infer_time) # Convert list to np array
-        print("Inference time:[min max avg.]")
-        print([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))])
+        log.info("Inference time:[min max avg.]")
+        log.info(([log_infer_time.min(),log_infer_time.max(),(float("{:.2f}".format(np.average(log_infer_time))))]))
+        log.info("-----Error log-----")
+        if len(log_multicounted) < 10 and len(log_multicounted) > 1: # Only if counting single person
+            log.info("Frame No: Count")
+            log.info(str(log_multicounted))
+        else:
+            log.info("N/A")
+        log.info("-----Finish!------")
 
-    print("-----Error log-----")
-    if len(log_multicounted) < 10 and len(log_multicounted) > 1: # Only if counting single person
-        print("Frame No: Count")
-        print(log_multicounted)
-    else:
-        print("N/A")
-    print("-----Finish!------")
+
 
 def main():
     """
@@ -522,7 +525,7 @@ def main():
     # Grab command line args
     # This is different method so do not use .m type attributes instead use whole name.
     args = build_argparser().parse_args()
-
+    
     log.info("Commandline Arguments received")
     log.info("-----Information-----")
     log.info("Model path:"+ str(args.model))
@@ -539,9 +542,10 @@ def main():
     log.info("Toggle video feed on/off:"+str(args.toggle_video))
     log.info("Write output to video file Y or N:"+str(args.write_video))
     log.info("-----------------------")
+    
+            
     # Connect to the MQTT server
     client = connect_mqtt()
-
 
     # Perform inference on the input stream
     infer_on_stream(args, client) 

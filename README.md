@@ -4,7 +4,91 @@
 |-----------------------|---------------|
 | Programming Language: |  Python 3.5 or 3.6 |
 
-![people-counter-python](./images/people-counter-image.png)
+**Features:**
+- Count person on video.
+- Calculates duration stayed, one person at a time.
+- Run online app or with local setup.
+- Input supported: Single image, Local video, webcam.
+- Live Feed On/Off.
+- Confugurable delay to currect counting in case of frequenct fluctuation in detection per frame.
+- Selectable bounding box color.
+- Selectable Alarm of more people appear on video. 
+- Selectable Alarm if person stayed longer than set time.
+- Write output video to local storage.
+- log info in txt file in case of web app.
+- Selectable confidence threshold.
+- Live stats of inference time, Image processing time.
+- Final report of overall stats in terminal at the end of video.
+
+**Limitation**
+- Can not count duration of multiple people in same frame
+- Live feed On/Off in reatime is not possible due to ffmpeg arguments.
+
+For more detail , use -h argument:
+
+```
+usage: main_win_local.py [-h] -m MODEL -i INPUT -fps FPS [-l CPU_EXTENSION]
+                         [-d DEVICE] [-pt PROB_THRESHOLD] [-c BOX_COLOR]
+                         [-ap ALARM_PEOPLE] [-ad ALARM_DURATION]
+                         [-tv TOGGLE_VIDEO] [-ci CAM_ID] [-db DELAY_BAND]
+                         [-wv WRITE_VIDEO]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MODEL, --model MODEL
+                        Path to an xml file with a trained model.
+  -i INPUT, --input INPUT
+                        Path to image, video file or for webcam just type CAM
+  -fps FPS, --fps FPS   FPS of Video or webcam, required to get perfect
+                        duration calculations.
+  -l CPU_EXTENSION, --cpu_extension CPU_EXTENSION
+                        MKLDNN (CPU)-targeted custom layers.Absolute path to a
+                        shared library with thekernels impl.
+  -d DEVICE, --device DEVICE
+                        Specify the target device to infer on: CPU, GPU, FPGA
+                        or MYRIAD is acceptable. Sample will look for a
+                        suitable plugin for device specified (CPU by default)
+  -pt PROB_THRESHOLD, --prob_threshold PROB_THRESHOLD
+                        Probability threshold for detections filtering(0.5 by
+                        default)
+  -c BOX_COLOR, --box_color BOX_COLOR
+                        Color of bounding box[RED,GREEN,BLUE,WHITE,RED](WHITE
+                        by default)
+  -ap ALARM_PEOPLE, --alarm_people ALARM_PEOPLE
+                        Alarm when certain no people detected exceed the
+                        limit(1 by default)
+  -ad ALARM_DURATION, --alarm_duration ALARM_DURATION
+                        Alarm when time of person stayed exceed the
+                        limit(15sec. by default)
+  -tv TOGGLE_VIDEO, --toggle_video TOGGLE_VIDEO
+                        Toggle Video feed on or off [ON or OFF](on by default)
+  -ci CAM_ID, --cam_id CAM_ID
+                        input web Camera id(0 by default)
+  -db DELAY_BAND, --delay_band DELAY_BAND
+                        input delay band (Millis) to fix counting in case of
+                        video fluctuation or frame loss(1000 millis by
+                        default)
+  -wv WRITE_VIDEO, --write_video WRITE_VIDEO
+                        write video to local file Y or N [Y or N](on by
+                        default)
+```
+
+**Demo video:**
+
+- Web-application:[Youtube Link](https://youtu.be/JMvboBCW1ZU)
+- Local system: [Youtube Link](https://www.youtube.com/watch?v=Wd6FCHBtWRY&feature=youtu.be)
+
+**With live feed**
+
+![people-counter-python](./resources/images/people-counter-image1.jpg)
+
+**Without live feed**
+
+![people-counter-python](./resources/images/people-counter-image2.jpg)
+
+**Multi People count**
+
+![people-counter-python](./resources/images/people-counter-image3.jpg)
 
 ## What it Does
 
@@ -16,7 +100,7 @@ The counter will use the Inference Engine included in the Intel® Distribution o
 
 You will choose a model to use and convert it with the Model Optimizer.
 
-![architectural diagram](./images/arch_diagram.png)
+![architectural diagram](./resources/images/arch_diagram.png)
 
 ## Requirements
 
@@ -53,6 +137,16 @@ Utilize the classroom workspace, or refer to the relevant instructions for your 
 - [Mac](./mac-setup.md)
 - [Windows](./windows-setup.md)
 
+## Running code for webapp[Linux only]:
+
+There are two files for linux to run:
+1. main.py 
+2. main_lin_local.py
+
+For online app use **main.py**. Note: Online app will log all the messages to log.txt file in working directory.
+
+### Configure dependency:
+
 ### Install npm
 
 There are three components that need to be running in separate terminals for this application to work:
@@ -87,13 +181,25 @@ From the main directory:
 
 It is up to you to decide on what model to use for the application. You need to find a model not already converted to Intermediate Representation format (i.e. not one of the Intel® Pre-Trained Models), convert it, and utilize the converted model in your application.
 
-Note that you may need to do additional processing of the output to handle incorrect detections, such as adjusting confidence threshold or accounting for 1-2 frames where the model fails to see a person already counted and would otherwise double count.
+For test purpose you can run intel preconverted model person-detection-retail-0013.
+
+Step to download [Ucacity workspace]:
+- source env:source /opt/intel/openvino/bin/setupvars.sh -pyver 3.5
+- This will download all precision models to workspace folder.
+- Step1: cd /opt/intel/openvino/deployment_tools/tools/model_downloader
+- step2: sudo ./downloader.py -h
+- step3: sudo ./downloader.py --name person-detection-retail-0013 -o /home/workspace/resources/
+
+Note: After sucessfull download, move all the .xml and .bin filea to model folder for commandline arguments.
+
+Or download all the converted models: [Click to Download Size:1.04GB](https://drive.google.com/open?id=1ItJQcAiqOskZVGS9ar7EuieClei7WO1P)
+
 
 **If you are otherwise unable to find a suitable model after attempting and successfully converting at least three other models**, you can document in your write-up what the models were, how you converted them, and why they failed, and then utilize any of the Intel® Pre-Trained Models that may perform better.
 
 ## Run the application
 
-From the main directory:
+From the main directory: All the four steps should done in seperate terminal.
 
 ### Step 1 - Start the Mosca server
 
@@ -153,7 +259,7 @@ When running Intel® Distribution of OpenVINO™ toolkit Python applications on 
 Though by default application runs on CPU, this can also be explicitly specified by ```-d CPU``` command-line argument:
 
 ```
-python main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m your-model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python main.py -i resources/io/pca10.mp4 -m your-model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.5 -FPS 10 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 If you are in the classroom workspace, use the “Open App” button to view the output. If working locally, to see the output on a web based interface, open the link [http://0.0.0.0:3004](http://0.0.0.0:3004/) in a browser.
 
@@ -162,7 +268,7 @@ If you are in the classroom workspace, use the “Open App” button to view the
 To run on the Intel® Neural Compute Stick, use the ```-d MYRIAD``` command-line argument:
 
 ```
-python3.5 main.py -d MYRIAD -i resources/Pedestrian_Detect_2_1_1.mp4 -m your-model.xml -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python3.5 main.py -d MYRIAD -i resources/io/pca10.mp4 -m your-model.xml -pt 0.5 -FPS 10 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 To see the output on a web based interface, open the link [http://0.0.0.0:3004](http://0.0.0.0:3004/) in a browser.
@@ -171,11 +277,11 @@ To see the output on a web based interface, open the link [http://0.0.0.0:3004](
 
 #### Using a camera stream instead of a video file
 
-To get the input video from the camera, use the `-i CAM` command-line argument. Specify the resolution of the camera using the `-video_size` command line argument.
+To get the input video from the camera, use the `-i CAM` command-line argument. Specify the resolution of the camera using the `-video_size` command line argument. Specify webcame FPS by -FPS 
 
 For example:
 ```
-python main.py -i CAM -m your-model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python main.py -i CAM -m your-model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.5 -FPS 25 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 To see the output on a web based interface, open the link [http://0.0.0.0:3004](http://0.0.0.0:3004/) in a browser.
@@ -199,4 +305,28 @@ You can change each of these as follows:
 CAMERA_FEED_SERVER: "http://localhost:3004"
 ...
 MQTT_SERVER: "ws://localhost:3002"
+```
+
+## Running Local setup without web app [Linux]:
+
+There is no special dependecy for local setup:
+- Run main_lin_local.py
+
+```
+python main.py -i resources/io/pca10.mp4 -m resources/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml -pt 0.5 -fps 10 
+```
+
+For remote linux machine or udacity worspace use -tv OFF argument to disable output on display.
+
+```
+python main.py -i resources/io/pca10.mp4 -m resources/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml -pt 0.5 -fps 10 
+```
+
+## Running Local setup without web app [Windows10]:
+
+There is no special dependecy for local setup:
+- Run main_lin_local.py
+
+```
+python main_win_local.py -i resources/io/pca10.mp4 -m resources/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml -pt 0.5 -fps 10 
 ```
