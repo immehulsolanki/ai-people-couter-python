@@ -325,7 +325,7 @@ python main.py -i resources/io/pca10.mp4 -m resources/intel/person-detection-ret
 ## Running Local setup without web app [Windows10]:
 
 There is no special dependecy for local setup:
-- Run main_lin_local.py
+- Run main_win_local.py
 
 ```
 python main_win_local.py -i resources/io/pca10.mp4 -m resources/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml -pt 0.5 -fps 10 
