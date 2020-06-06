@@ -1,6 +1,6 @@
 """People Counter."""
 """
- Copyright [2020] [MEHUL SOLANKI]
+Copyright [2020] [MEHUL SOLANKI]
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -335,7 +335,7 @@ def infer_on_stream(args, client):
             
             count_people_image = countmultipeople # Variable For image stat only 
             ### TODO: Calculate and send relevant information on ###
-            if count_box != last_state: #Anythinkg under this will executed if state changes only onnce after sometime.
+            if count_box != last_state: #Anythinkg under this will executed only once if state changes.
                 log_acount += 1 # increase stat change counter
                 if count_box == 1:
                     count_flag = True # Flag for verify if counting 
